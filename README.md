@@ -12,7 +12,8 @@ with a few conveniences a plain file explorer doesn't give you.
 > weekend gone into making it work. Full transparency: I couldn't have
 > built this on my own, and I'm not at a skill level where I could
 > reliably reproduce it without all that help. This exists because of the
-> people and resources that got me through it, not solo ability.
+> people and resources that got me through it, this does not shot my solo
+> ability.
 
 ## Features
 
