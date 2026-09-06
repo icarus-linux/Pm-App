@@ -24,7 +24,8 @@ HELP_TEXT = {
     "workspaces": (
         "Workspaces\n\n"
         "A workspace is any folder on your computer. Each workspace can hold many "
-        "product groups. Use 'Open Other Folder...' to add a new workspace, or "
+        "product groups. Use 'New Workspace...' to create one, or 'Open Other "
+        "Folder...' to add an existing folder. "
         "double-click a recent one to open it. Switching workspaces here lets you "
         "keep multiple unrelated projects completely separate."
     ),
@@ -64,7 +65,7 @@ def save_config(data):
     try:
         CONFIG_FILE.write_text(json.dumps(data, indent=2))
     except Exception:
-        pass  # non-fatal: worst case, state isn't remembered next launch
+        pass
 
 
 def sidecar_path(file_path: Path) -> Path:
@@ -83,7 +84,7 @@ class WorkspaceApp(BaseTk):
 
         self.config_data = load_config()
         self.workspace_path = None
-        self.current_rel_dir = None   # relative path (posix str) of selected product/sub-product, "" = workspace root
+        self.current_rel_dir = None
         self.current_file = None
         self.text_dirty = False
 
@@ -93,7 +94,6 @@ class WorkspaceApp(BaseTk):
         self.protocol("WM_DELETE_WINDOW", self.on_close)
         self.show_selector()
 
-    # ================= Landing page: choose / switch workspace =================
     def _build_selector_ui(self):
         self.selector_frame = ttk.Frame(self, padding=24)
 
@@ -109,6 +109,7 @@ class WorkspaceApp(BaseTk):
         btns = ttk.Frame(self.selector_frame)
         btns.pack(fill="x", pady=(6, 0))
         ttk.Button(btns, text="Open", command=self.open_selected_recent).pack(side="left")
+        ttk.Button(btns, text="New Workspace...", command=self.create_workspace).pack(side="left", padx=6)
         ttk.Button(btns, text="Open Other Folder...", command=self.choose_workspace).pack(side="left", padx=6)
         ttk.Button(btns, text="Remove From List", command=self.remove_recent).pack(side="left")
 
@@ -152,6 +153,33 @@ class WorkspaceApp(BaseTk):
         if path:
             self.set_workspace(path)
 
+    def create_workspace(self):
+        parent = filedialog.askdirectory(title="Choose where to create the workspace")
+        if not parent:
+            return
+
+        name = simpledialog.askstring("New Workspace", "Workspace name:")
+        if not name:
+            return
+
+        name = name.strip()
+        if not name or Path(name).name != name:
+            messagebox.showerror("Invalid name", "Enter a folder name without path separators.")
+            return
+
+        path = Path(parent) / name
+        if path.exists():
+            messagebox.showerror("Already exists", "A file or folder with that name already exists.")
+            return
+
+        try:
+            path.mkdir()
+        except OSError as exc:
+            messagebox.showerror("Could not create workspace", str(exc))
+            return
+
+        self.set_workspace(path)
+
     def set_workspace(self, path):
         self.workspace_path = Path(path)
         recents = self.config_data.setdefault("recent_workspaces", [])
@@ -174,7 +202,6 @@ class WorkspaceApp(BaseTk):
         self.workspace_frame.pack(fill="both", expand=True)
         self.title(f"Product Workspace — {self.workspace_path.name}")
 
-    # ================= Main workspace UI =================
     def _build_workspace_ui(self):
         self.workspace_frame = ttk.Frame(self)
 
@@ -187,7 +214,6 @@ class WorkspaceApp(BaseTk):
         ttk.Button(top, text="Search...", command=self.open_search).pack(side="left", padx=4)
         ttk.Button(top, text="Backup Workspace...", command=self.export_workspace_zip).pack(side="left", padx=4)
 
-        # View toggles (hide/show panels)
         self.show_products_var = tk.BooleanVar(value=True)
         self.show_files_var = tk.BooleanVar(value=True)
         ttk.Checkbutton(top, text="Products", variable=self.show_products_var,
@@ -217,7 +243,6 @@ class WorkspaceApp(BaseTk):
         self.main_paned.add(self.preview_frame, weight=2)
 
     def _apply_panel_visibility(self):
-        # Rebuild the paned window's panes based on checkbox state, preview always shown.
         for pane in self.main_paned.panes():
             self.main_paned.forget(pane)
         if self.show_products_var.get():
@@ -230,7 +255,6 @@ class WorkspaceApp(BaseTk):
         return ttk.Button(parent, text="?", width=2,
                            command=lambda: messagebox.showinfo("Help", HELP_TEXT[key]))
 
-    # ---------------- Products (nested tree) ----------------
     def _build_products_panel(self):
         self.products_frame = ttk.Frame(self.main_paned, padding=6)
         header = ttk.Frame(self.products_frame)
@@ -242,7 +266,7 @@ class WorkspaceApp(BaseTk):
         self.tree.pack(fill="both", expand=True, pady=4)
         self.tree.bind("<<TreeviewSelect>>", self.on_select_product)
         self.tree.bind("<Button-3>", self.on_tree_right_click)
-        self.tree.bind("<Button-2>", self.on_tree_right_click)  # some trackpads/macs
+        self.tree.bind("<Button-2>", self.on_tree_right_click)
 
         pbtns = ttk.Frame(self.products_frame)
         pbtns.pack(fill="x")
@@ -285,11 +309,11 @@ class WorkspaceApp(BaseTk):
             "Unsaved changes",
             f"Save changes to '{self.current_file}' before switching?",
         )
-        if answer is None:  # Cancel
+        if answer is None:
             return False
-        if answer:  # Yes
+        if answer:
             self.save_current_file()
-        else:  # No — discard
+        else:
             self.text_dirty = False
         return True
 
@@ -300,8 +324,6 @@ class WorkspaceApp(BaseTk):
         if rel == self.current_rel_dir:
             return
         if not self._confirm_discard_if_dirty():
-            # Put the tree selection back to the product that's still open,
-            # since the user chose not to switch after all.
             if self.current_rel_dir and self.tree.exists(self.current_rel_dir):
                 self.tree.selection_set(self.current_rel_dir)
             return
@@ -360,9 +382,6 @@ class WorkspaceApp(BaseTk):
         old_path.rename(new_path)
         new_rel = new_path.relative_to(self.workspace_path).as_posix()
 
-        # If the renamed folder was open (or was an ancestor of the open
-        # folder), current_rel_dir points at a path that no longer exists.
-        # Rewrite it to the new location so Add/New/Delete keep working.
         if self.current_rel_dir is not None and (
             self.current_rel_dir == rel or self.current_rel_dir.startswith(rel + "/")
         ):
@@ -413,7 +432,6 @@ class WorkspaceApp(BaseTk):
         if target_rel == self.current_rel_dir:
             self.refresh_files()
 
-    # ---------------- Files ----------------
     def _build_files_panel(self):
         self.files_frame = ttk.Frame(self.main_paned, padding=6)
         header = ttk.Frame(self.files_frame)
@@ -530,7 +548,6 @@ class WorkspaceApp(BaseTk):
         if name == self.current_file:
             return
         if not self._confirm_discard_if_dirty():
-            # Revert the listbox selection back to the file that's still open.
             items = list(self.files_list.get(0, "end"))
             if self.current_file in items:
                 idx = items.index(self.current_file)
@@ -568,7 +585,6 @@ class WorkspaceApp(BaseTk):
                 messagebox.showerror("Error copying file", str(e))
         self.refresh_files()
 
-    # ---------------- Preview / rich-text editing ----------------
     def _build_preview_panel(self):
         self.preview_frame = ttk.Frame(self.main_paned, padding=6)
         header = ttk.Frame(self.preview_frame)
@@ -612,11 +628,9 @@ class WorkspaceApp(BaseTk):
         try:
             start, end = self.text_editor.index("sel.first"), self.text_editor.index("sel.last")
         except tk.TclError:
-            return  # nothing selected
+            return
 
         if tag == "underline":
-            # Underline doesn't touch the font, so it can freely combine with
-            # bold and/or italic on the same text — plain add/remove is fine.
             current_tags = self.text_editor.tag_names("sel.first")
             if tag in current_tags:
                 self.text_editor.tag_remove(tag, start, end)
@@ -626,12 +640,6 @@ class WorkspaceApp(BaseTk):
             self.save_btn.config(state="normal")
             return
 
-        # Bold and italic both need the "font" option, and Tk can only show one
-        # font per character, so bold+italic together has to be its own tag
-        # ("bold_italic") rather than two separate tags stacked on each other.
-        # We walk the selection character-by-character, work out each
-        # character's current bold/italic state, flip the one being toggled,
-        # and re-tag it with whichever of the four combinations now applies.
         turn_on = not self._selection_fully_has(tag, start, end)
         idx = start
         while self.text_editor.compare(idx, "<", end):
@@ -784,7 +792,6 @@ class WorkspaceApp(BaseTk):
         else:
             subprocess.call(("xdg-open", str(path)))
 
-    # ---------------- Search across the whole workspace ----------------
     def _search_workspace(self, query, max_results=200):
         """Scan every product/sub-product name, file name, and .txt/.md file's
         text content for `query` (case-insensitive). Returns a list of dicts
@@ -859,9 +866,6 @@ class WorkspaceApp(BaseTk):
             return
         if not self._select_tree_node(rel_dir):
             return
-        # The tree's own <<TreeviewSelect>> handler (which repopulates the
-        # files list) is still pending at this point, so the file-selection
-        # step has to wait until it has actually run.
         self.after_idle(lambda: self._finish_select_file(filename))
 
     def _finish_select_file(self, filename):
@@ -929,7 +933,6 @@ class WorkspaceApp(BaseTk):
         entry.bind("<Return>", jump)
         results_list.bind("<Double-Button-1>", jump)
 
-    # ---------------- Backup / export ----------------
     def export_workspace_zip(self):
         if not self.workspace_path:
             messagebox.showinfo("No workspace", "Open a workspace first.")
@@ -950,9 +953,6 @@ class WorkspaceApp(BaseTk):
         dest_path = Path(dest)
         base_no_ext = str(dest_path.with_suffix(""))
         try:
-            # Zips the entire workspace folder — every product, every nested
-            # sub-product, every file, and each file's formatting sidecar —
-            # as a single top-level folder inside the archive.
             archive_path = Path(shutil.make_archive(
                 base_no_ext, "zip",
                 root_dir=str(self.workspace_path.parent),
