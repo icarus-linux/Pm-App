@@ -23,7 +23,7 @@ def save_config(data):
     try:
         CONFIG_FILE.write_text(json.dumps(data, indent=2))
     except Exception:
-        pass  # non-fatal: worst case, state isn't remembered next launch
+        pass
 
 class WorkspaceApp(tk.Tk):
     def __init__(self):
@@ -41,7 +41,6 @@ class WorkspaceApp(tk.Tk):
         self._build_ui()
         self._restore_state()
 
-# ---------- UI construction ----------
     def _build_ui(self):
         top = ttk.Frame(self, padding=8)
         top.pack(side="top", fill="x")
@@ -54,7 +53,6 @@ class WorkspaceApp(tk.Tk):
         main = ttk.Panedwindow(self, orient="horizontal")
         main.pack(fill="both", expand=True)
 
-        # Products panel
         products_frame = ttk.Frame(main, padding=6)
         ttk.Label(products_frame, text="Products", font=("", 10, "bold")).pack(anchor="w")
         self.products_list = tk.Listbox(products_frame, exportselection=False)
@@ -66,7 +64,6 @@ class WorkspaceApp(tk.Tk):
         ttk.Button(pbtns, text="Delete", command=self.delete_product).pack(side="left", expand=True, fill="x")
         main.add(products_frame, weight=1)
 
-        # Files panel
         files_frame = ttk.Frame(main, padding=6)
         ttk.Label(files_frame, text="Files", font=("", 10, "bold")).pack(anchor="w")
         self.files_list = tk.Listbox(files_frame, exportselection=False)
@@ -79,7 +76,6 @@ class WorkspaceApp(tk.Tk):
         ttk.Button(fbtns, text="Delete", command=self.delete_file).pack(side="left", expand=True, fill="x")
         main.add(files_frame, weight=1)
 
-        # Preview / editor panel
         preview_frame = ttk.Frame(main, padding=6)
         self.preview_label = ttk.Label(preview_frame, text="Select a file to preview or edit", font=("", 10, "bold"))
         self.preview_label.pack(anchor="w")
@@ -88,7 +84,7 @@ class WorkspaceApp(tk.Tk):
         self.text_editor.pack(fill="both", expand=True, pady=4)
         self.text_editor.bind("<<Modified>>", self._on_text_modified)
 
-        self.image_canvas_label = ttk.Label(preview_frame)  # used only for image preview
+        self.image_canvas_label = ttk.Label(preview_frame)
 
         save_bar = ttk.Frame(preview_frame)
         save_bar.pack(fill="x")
@@ -100,7 +96,6 @@ class WorkspaceApp(tk.Tk):
 
         self.protocol("WM_DELETE_WINDOW", self.on_close)
 
-# ---------- Workspace handling ----------
     def choose_workspace(self):
         path = filedialog.askdirectory(title="Choose a folder for your Product Workspace")
         if path:
@@ -134,7 +129,6 @@ class WorkspaceApp(tk.Tk):
         else:
             messagebox.showinfo("Welcome", "Choose a folder to use as your Product Workspace to get started.")
 
-# ---------- Products ----------
     def refresh_products(self):
         self.products_list.delete(0, "end")
         if not self.workspace_path:
@@ -181,7 +175,6 @@ class WorkspaceApp(tk.Tk):
         self.refresh_files()
         self.clear_preview()
 
-# ---------- Files ----------
     def refresh_files(self):
         self.files_list.delete(0, "end")
         if not self.current_product:
@@ -239,7 +232,6 @@ class WorkspaceApp(tk.Tk):
         save_config(self.config_data)
         self.load_preview(name)
 
-# ---------- Preview / editing ----------
     def load_preview(self, name):
         path = self.workspace_path / self.current_product / name
         ext = path.suffix.lower()
@@ -278,7 +270,7 @@ class WorkspaceApp(tk.Tk):
         img = Image.open(path)
         img.thumbnail((600, 500))
         photo = ImageTk.PhotoImage(img)
-        self.image_canvas_label.image = photo  # keep a reference so it isn't garbage collected
+        self.image_canvas_label.image = photo
         self.image_canvas_label.config(image=photo)
         self.image_canvas_label.pack(fill="both", expand=True, pady=4)
 
@@ -322,6 +314,7 @@ class WorkspaceApp(tk.Tk):
                 self.save_current_file()
         save_config(self.config_data)
         self.destroy()
+
 if __name__ == "__main__":
     app = WorkspaceApp()
     app.mainloop()
