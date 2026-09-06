@@ -7,6 +7,13 @@ nested sub-products, with a built-in text editor, search, and backups.
 Think: a simple file manager purpose-built for "one folder per product,"
 with a few conveniences a plain file explorer doesn't give you.
 
+> Built with the constant help of random people on Discord, Claude Code,
+> YouTube, old forum posts, and nonstop Googling — basically an entire
+> weekend gone into making it work. Full transparency: I couldn't have
+> built this on my own, and I'm not at a skill level where I could
+> reliably reproduce it without all that help. This exists because of the
+> people and resources that got me through it, not solo ability.
+
 ## Features
 
 - **Multiple workspaces** — a landing page lists your recent workspaces
